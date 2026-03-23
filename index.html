@@ -1260,6 +1260,7 @@ function App() {
                     enabizTC: enabiz.tc || "",
                     enabizPass: enabiz.pass || "",
                     calLang: lang,
+                    trigger: "sheet",
                   });
                   const s = document.createElement("script");
                   s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
@@ -1278,6 +1279,7 @@ function App() {
                   surgery: form.surgery === true ? "Evet" : form.surgery === false ? "Hayır" : "",
                   desc: form.desc, ref: form.ref,
                   enabizTC: "", enabizPass: "", calLang: lang,
+                  trigger: "sheet",
                 });
                 const s = document.createElement("script");
                 s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
@@ -1328,7 +1330,20 @@ function App() {
                 </p>
               </div>
 
-              <button className="pay-btn" onClick={() => setStep(3)}>
+              <button className="pay-btn" onClick={() => {
+                const params = new URLSearchParams({
+                  name: form.name,
+                  phone: "'" + form.phone,
+                  concern: form.concernOther ? `${form.concern} — ${form.concernOther}` : form.concern,
+                  calLang: lang,
+                  trigger: "whatsapp",
+                });
+                const s = document.createElement("script");
+                s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
+                document.head.appendChild(s);
+                setTimeout(() => s.remove(), 5000);
+                setStep(3);
+              }}>
                 {t.payment.pay}
               </button>
               <button
