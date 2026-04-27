@@ -111,7 +111,14 @@ const TR = {
       "Görüşme WhatsApp üzerinden gerçekleşecektir. WhatsApp'ınız yoksa e-postanızda Google Meet linki yer alacaktır.",
     ],
   },
-  progress: ["Bilgiler", "E-Nabız", "Ödeme", "Dil", "Randevu"],
+  progress: ["Bilgiler", "Ödeme", "Dil", "Randevu"],
+  payConfirm: {
+    title: "Havaleyi gönderdiniz mi?",
+    body: "Ödemeyi tamamlamadan randevu almayınız. Havaleyi gönderdikten sonra devam edin.",
+    yes: "Evet, gönderdim →",
+    no: "← Geri dön",
+  },
+  calDisclaimer: "Randevuyu aldıktan sonra lütfen +90 532 151 97 34 numarasına WhatsApp mesajı gönderin ve 'Randevumu aldım' yazın. Ardından sizden E-Nabız bilgileriniz, bilgisayarlı tomografi, PET-BT gibi görüntüleme tetkikleri ile laboratuvar ve patoloji kayıtlarınız talep edilecektir. Doktorun bu belgeleri inceleyebilmesi için randevu tarihinizi en az 24 saat sonrasına alınız.",
   back: "← Geri",
   intro: {
     title: "Prof. Dr. Semih Halezeroğlu ile Online Tıbbi Değerlendirme Başvurusu",
@@ -233,7 +240,14 @@ const EN = {
       "The consultation will take place via WhatsApp. If WhatsApp is unavailable, a Google Meet link will be included in the confirmation email.",
     ],
   },
-  progress: ["Details", "E-Nabız", "Payment", "Language", "Appointment"],
+  progress: ["Details", "Payment", "Language", "Appointment"],
+  payConfirm: {
+    title: "Have you sent the bank transfer?",
+    body: "Please do not book an appointment before completing the payment. Continue only after you have sent the transfer.",
+    yes: "Yes, I've sent it →",
+    no: "← Go back",
+  },
+  calDisclaimer: "After booking your appointment, please send a WhatsApp message to +90 532 151 97 34 saying 'I have booked my appointment.' You will then be asked to share your E-Nabız credentials, CT scans, PET-CT and other imaging results, as well as laboratory and pathology records for review. Please select an appointment at least 24 hours ahead so the doctor has time to review your documents.",
   back: "← Back",
   intro: {
     title: "Online Medical Assessment with Prof. Dr. Semih Halezeroğlu",
@@ -1010,21 +1024,13 @@ function App() {
   const waLink = lang === "tr" ? WHATSAPP_TR : WHATSAPP_EN;
 
   const [form, setForm] = useState({ name:"", age:"", country:"", email:"", phone:"", concern:"", concernOther:"", surgery:null, desc:"", ref:"" });
-  const [enabiz, setEnabiz] = useState({ tc:"", pass:"", skip: false });
   const [calLang, setCalLang] = useState(null);
-  const [paying, setPaying] = useState(false);
-  const [cardForm, setCardForm] = useState({ name:"", num:"", expiry:"", cvv:"" });
-
-  const handlePayment = () => {
-    setPaying(true);
-    setTimeout(() => { setPaying(false); setStep(3); }, 1000);
-  };
-
+  const [showPayConfirm, setShowPayConfirm] = useState(false);
 
   const resetAll = () => {
     setPage("intro"); setStep(0);
     setForm({ name:"", age:"", country:"", email:"", phone:"", concern:"", surgery:null, desc:"", ref:"" });
-    setEnabiz({ tc:"", pass:"", skip: false });
+    setShowPayConfirm(false);
   };
 
   return (
@@ -1177,7 +1183,7 @@ function App() {
               <div className="progress-step" key={i}>
                 <div className={`progress-dot ${i < step ? "done" : i === step ? "active" : "idle"}`}>{i < step ? "✓" : i+1}</div>
                 <span className={`progress-label ${i === step ? "active" : ""}`}>{label}</span>
-                {i < 4 && <div className={`progress-connector ${i < step ? "done" : ""}`} />}
+                {i < 3 && <div className={`progress-connector ${i < step ? "done" : ""}`} />}
               </div>
             ))}
           </div>
@@ -1189,112 +1195,27 @@ function App() {
               onBack={() => setPage("intro")}
               onComplete={(fd) => {
                 setForm(fd);
+                const params = new URLSearchParams({
+                  name: fd.name, age: fd.age, email: fd.email,
+                  phone: "'" + fd.phone,
+                  concern: fd.concernOther ? `${fd.concern} — ${fd.concernOther}` : fd.concern,
+                  surgery: fd.surgery === true ? "Evet" : fd.surgery === false ? "Hayır" : "",
+                  desc: fd.desc, ref: fd.ref,
+                  calLang: lang,
+                });
+                const s = document.createElement("script");
+                s.src = "https://script.google.com/macros/s/AKfycbziLhMXDwmAaSgZFgWJPzOWBV_aidTpR1uDddchbCniMutWgXmKjpS05BXzBoOBPYx1xw/exec?" + params.toString();
+                document.head.appendChild(s);
+                setTimeout(() => s.remove(), 5000);
                 setStep(1);
               }}
             />
           )}
 
-          {/* STEP 1 — E-NABIZ */}
+          {/* STEP 1 — PAYMENT */}
           {step === 1 && (
             <div className="flow-container">
               <div className="flow-nav"><button className="back-btn" onClick={() => setStep(0)}>{t.back}</button></div>
-              <div className="flow-header">
-                <h2 className="flow-title">{t.upload.title}</h2>
-                <p className="flow-sub">{t.upload.subtitle}</p>
-              </div>
-
-              {!enabiz.skip && (
-                <div className="card-form" style={{ marginBottom: 24 }}>
-                  <div className="form-field">
-                    <label className="field-label">{t.upload.tcLabel}</label>
-                    <input
-                      className="field-input"
-                      placeholder={t.upload.tcPh}
-                      value={enabiz.tc}
-                      onChange={e => setEnabiz(v => ({ ...v, tc: e.target.value.replace(/\D/g,"").slice(0,11) }))}
-                      inputMode="numeric"
-                      maxLength={11}
-                    />
-                  </div>
-                  <div className="form-field" style={{ marginTop: 16 }}>
-                    <label className="field-label">{t.upload.passLabel}</label>
-                    <input
-                      className="field-input"
-                      type="password"
-                      placeholder={t.upload.passPh}
-                      value={enabiz.pass}
-                      onChange={e => setEnabiz(v => ({ ...v, pass: e.target.value }))}
-                    />
-                  </div>
-                  <div style={{ marginTop: 20, padding: "14px 16px", background: "#F0F7F0", borderRadius: 10, borderLeft: "4px solid #4CAF50", fontSize: 13, color: "#2E5E2E", lineHeight: 1.6 }}>
-                    {t.upload.safeMsg}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ margin: "20px 0", padding: "14px 16px", background: "#FFF8EC", borderRadius: 10, borderLeft: "4px solid #C8A96E", fontSize: 13, color: "#5A4010", lineHeight: 1.7 }}>
-                {t.upload.extraDocsNote}
-              </div>
-
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 24, fontSize: 14, color: "#5A6A7A" }}>
-                <input
-                  type="checkbox"
-                  checked={enabiz.skip}
-                  onChange={e => setEnabiz(v => ({ ...v, skip: e.target.checked, tc: "", pass: "" }))}
-                  style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#C8A96E" }}
-                />
-                {t.upload.noEnabiz}
-              </label>
-
-              <button
-                className="btn-primary-lg"
-                style={{ width: "100%", opacity: (enabiz.skip || (enabiz.tc.length === 11 && enabiz.pass.length > 0)) ? 1 : 0.4 }}
-                disabled={!enabiz.skip && (enabiz.tc.length < 11 || enabiz.pass.length === 0)}
-                onClick={() => {
-                  const params = new URLSearchParams({
-                    name: form.name, age: form.age, email: form.email,
-                    phone: "'" + form.phone,
-                    concern: form.concernOther ? `${form.concern} — ${form.concernOther}` : form.concern,
-                    surgery: form.surgery === true ? "Evet" : form.surgery === false ? "Hayır" : "",
-                    desc: form.desc, ref: form.ref,
-                    enabizTC: enabiz.tc || "",
-                    enabizPass: enabiz.pass || "",
-                    calLang: lang,
-                    trigger: "sheet",
-                  });
-                  const s = document.createElement("script");
-                  s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
-                  document.head.appendChild(s);
-                  setTimeout(() => s.remove(), 5000);
-                  setStep(2);
-                }}
-              >
-                {t.upload.next}
-              </button>
-              <span className="skip-link" onClick={() => {
-                const params = new URLSearchParams({
-                  name: form.name, age: form.age, email: form.email,
-                  phone: "'" + form.phone,
-                  concern: form.concernOther ? `${form.concern} — ${form.concernOther}` : form.concern,
-                  surgery: form.surgery === true ? "Evet" : form.surgery === false ? "Hayır" : "",
-                  desc: form.desc, ref: form.ref,
-                  enabizTC: "", enabizPass: "", calLang: lang,
-                  trigger: "sheet",
-                });
-                const s = document.createElement("script");
-                s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
-                document.head.appendChild(s);
-                setTimeout(() => s.remove(), 5000);
-                setEnabiz(v => ({ ...v, skip: true }));
-                setStep(2);
-              }}>{t.upload.skip}</span>
-            </div>
-          )}
-
-          {/* STEP 2 — PAYMENT */}
-          {step === 2 && (
-            <div className="flow-container">
-              <div className="flow-nav"><button className="back-btn" onClick={() => setStep(1)}>{t.back}</button></div>
               <div className="flow-header">
                 <h2 className="flow-title">{t.payment.title}</h2>
                 <p className="flow-sub">{t.payment.subtitle}</p>
@@ -1307,7 +1228,6 @@ function App() {
                 <ul className="pay-includes">{t.payment.includes.map((inc,i) => <li key={i}>{inc}</li>)}</ul>
               </div>
 
-              {/* Bank transfer details */}
               <div className="card-form" style={{ marginBottom: 24 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: "#1B3A5C", marginBottom: 20 }}>
                   {lang === "tr" ? "Havale / EFT Bilgileri" : "Bank Transfer Details"}
@@ -1330,35 +1250,29 @@ function App() {
                 </p>
               </div>
 
-              <button className="pay-btn" onClick={() => {
-                const params = new URLSearchParams({
-                  name: form.name,
-                  phone: "'" + form.phone,
-                  concern: form.concernOther ? `${form.concern} — ${form.concernOther}` : form.concern,
-                  calLang: lang,
-                  trigger: "whatsapp",
-                });
-                const s = document.createElement("script");
-                s.src = "https://script.google.com/macros/s/AKfycbxDsbUZWHsSyPkY-pgVjFSbUR8qsNjx1TcKRTNETpUBItBmP_3XhBWevUYPw2J7vvWIQQ/exec?" + params.toString();
-                document.head.appendChild(s);
-                setTimeout(() => s.remove(), 5000);
-                setStep(3);
-              }}>
+              <button className="pay-btn" onClick={() => setShowPayConfirm(true)}>
                 {t.payment.pay}
               </button>
-              <button
-                onClick={() => setStep(3)}
-                style={{ width:"100%", marginTop:12, background:"none", border:"1.5px solid #D8D0C4", borderRadius:8, padding:"14px 20px", fontSize:14, color:"#6B7A8D", cursor:"pointer", fontFamily:"DM Sans, sans-serif" }}>
-                {t.payment.altPayment}
-              </button>
               <p className="pay-policy">{t.payment.policy}</p>
+
+              {/* PAY CONFIRM MODAL */}
+              {showPayConfirm && (
+                <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+                  <div style={{ background:"#fff", borderRadius:20, padding:"40px 32px", maxWidth:420, width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
+                    <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:"#1B3A5C", marginBottom:16 }}>{t.payConfirm.title}</h3>
+                    <p style={{ fontSize:15, color:"#6B7A8D", lineHeight:1.7, marginBottom:28 }}>{t.payConfirm.body}</p>
+                    <button className="pay-btn" style={{ marginBottom:12 }} onClick={() => { setShowPayConfirm(false); setStep(2); }}>{t.payConfirm.yes}</button>
+                    <button onClick={() => setShowPayConfirm(false)} style={{ width:"100%", background:"none", border:"1.5px solid #D8D0C4", borderRadius:8, padding:"14px 20px", fontSize:14, color:"#6B7A8D", cursor:"pointer", fontFamily:"DM Sans, sans-serif" }}>{t.payConfirm.no}</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* STEP 3 — LANGUAGE PREFERENCE */}
-          {step === 3 && (
+          {/* STEP 2 — LANGUAGE PREFERENCE */}
+          {step === 2 && (
             <div className="flow-container">
-              <div className="flow-nav"><button className="back-btn" onClick={() => setStep(2)}>{t.back}</button></div>
+              <div className="flow-nav"><button className="back-btn" onClick={() => setStep(1)}>{t.back}</button></div>
               <div className="flow-header">
                 <h2 className="flow-title">{lang === "tr" ? "Randevu dilinizi seçin" : "Select your appointment language"}</h2>
                 <p className="flow-sub">{lang === "tr" ? "Onay ve hatırlatma e-postalarınız seçtiğiniz dilde gönderilecektir." : "Your confirmation and reminder emails will be sent in your chosen language."}</p>
@@ -1370,7 +1284,7 @@ function App() {
                 ].map(opt => (
                   <button
                     key={opt.value}
-                    onClick={() => { setCalLang(opt.value); setStep(4); }}
+                    onClick={() => { setCalLang(opt.value); setStep(3); }}
                     style={{
                       display: "flex", alignItems: "center", gap: 18, padding: "20px 24px",
                       background: calLang === opt.value ? "#FDF6EC" : "#FFFFFF",
@@ -1389,20 +1303,23 @@ function App() {
             </div>
           )}
 
-          {/* STEP 4 — SCHEDULE */}
-          {step === 4 && (
+          {/* STEP 3 — SCHEDULE */}
+          {step === 3 && (
             <div className="flow-container">
-              <div className="flow-nav"><button className="back-btn" onClick={() => setStep(3)}>{t.back}</button></div>
+              <div className="flow-nav"><button className="back-btn" onClick={() => setStep(2)}>{t.back}</button></div>
               <div className="flow-header">
                 <h2 className="flow-title">{t.schedule.title}</h2>
                 <p className="flow-sub">{t.schedule.subtitle}</p>
               </div>
-              <CalEmbed lang={calLang || lang} onBooked={() => setStep(5)} />
+              <div style={{ background: "#FFF8EC", border: "1px solid #E8C97A", borderRadius: 12, padding: "16px 20px", marginBottom: 24, fontSize: 14, color: "#5A4010", lineHeight: 1.75 }}>
+                📋 {t.calDisclaimer}
+              </div>
+              <CalEmbed lang={calLang || lang} onBooked={() => setStep(4)} />
             </div>
           )}
 
-          {/* STEP 5 — CONFIRM */}
-          {step === 5 && (
+          {/* STEP 4 — CONFIRM */}
+          {step === 4 && (
             <div className="flow-container">
               <div className="confirm-hero">
                 <div className="confirm-icon">✅</div>
@@ -1415,6 +1332,17 @@ function App() {
                 <div className="confirm-row"><span className="confirm-key">{lang==="tr"?"Konu":"Topic"}</span><span className="confirm-val">{form.concern}</span></div>
                 <div className="confirm-row"><span className="confirm-key">Platform</span><span className="confirm-val">{form.phone === "Google Meet" ? "Google Meet" : "WhatsApp"}</span></div>
                 <div className="confirm-row"><span className="confirm-key">{lang==="tr"?"Doktor":"Doctor"}</span><span className="confirm-val">Prof. Dr. Semih Halezeroğlu</span></div>
+              </div>
+
+              {/* WHATSAPP INSTRUCTION */}
+              <div style={{ background: "#F0F7F0", border: "1px solid #A8D5B0", borderRadius: 12, padding: "20px 24px", marginBottom: 24, fontSize: 14, color: "#1E4A2A", lineHeight: 1.8 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 15 }}>
+                  {lang === "tr" ? "📲 Şimdi ne yapmalısınız?" : "📲 What to do now?"}
+                </div>
+                {lang === "tr"
+                  ? "Lütfen şimdi +90 532 151 97 34 numarasına WhatsApp mesajı gönderin ve 'Randevumu aldım' yazın. Ardından sizden E-Nabız bilgileriniz, bilgisayarlı tomografi, PET-BT gibi görüntüleme tetkikleri ile laboratuvar ve patoloji kayıtlarınız talep edilecektir."
+                  : "Please send a WhatsApp message now to +90 532 151 97 34 saying 'I have booked my appointment.' You will then be asked to share your E-Nabız credentials, CT scans, PET-CT and other imaging results, as well as laboratory and pathology records."
+                }
               </div>
 
               <div className="tips-card">
